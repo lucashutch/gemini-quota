@@ -1,7 +1,11 @@
-# LimitWatch
+<div align="center">
+  <img src="limitwatch.svg" alt="LimitWatch logo" width="128" height="128">
+  <h1>LimitWatch</h1>
+  <p><strong>Keep every AI coding quota in sight.</strong></p>
+  <p>A fast Rust CLI for GitHub Copilot, OpenAI Codex, and OpenRouter.</p>
+</div>
 
-LimitWatch is a Rust CLI for monitoring quota usage, reset times, and credits
-across GitHub Copilot, OpenAI Codex, and OpenRouter accounts.
+<br>
 
 ## Features
 
