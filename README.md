@@ -27,8 +27,17 @@ fetching, history filters, and completions.
 
 ## Install
 
-[Install Rust](https://www.rust-lang.org/tools/install) 1.88 or newer, then
-install LimitWatch from GitHub:
+On Linux x86_64, install the latest release binary with:
+
+```sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/lucashutch/limitwatch/main/scripts/install.sh | sh
+```
+
+The installer verifies the release checksum and installs `limitwatch` to
+`~/.local/bin`. Set `LIMITWATCH_INSTALL_DIR` to use another directory.
+
+Alternatively, [install Rust](https://www.rust-lang.org/tools/install) 1.88 or
+newer and build LimitWatch from GitHub:
 
 ```sh
 cargo install --git https://github.com/lucashutch/limitwatch.git --locked
