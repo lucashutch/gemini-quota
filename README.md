@@ -30,7 +30,7 @@ fetching, history filters, and completions.
 On Linux x86_64, install the latest release binary with:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/lucashutch/limitwatch/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lucashutch/limitwatch/main/scripts/install.sh | sh
 ```
 
 The installer verifies the release checksum and installs `limitwatch` to
