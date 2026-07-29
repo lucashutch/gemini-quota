@@ -317,14 +317,18 @@ fn show(a: ShowArgs) -> Result<()> {
         }
     }
     if !auth.auth_path.exists() {
+        if is_interactive(&a) {
+            let answer = prompt("Accounts file not found. Would you like to log in? [Y/n]: ")?;
+            if login_requested(&answer) {
+                return login(&mut auth, &a);
+            }
+        }
         return status(&a, "error", "Accounts file not found");
     }
     if auth.accounts.is_empty() {
         return status(&a, "error", "No accounts found");
     }
-    if (!a.alias.is_none() || !a.group.is_none() || !a.project_id.is_none())
-        && !a.account.is_empty()
-    {
+    if (a.alias.is_some() || a.group.is_some() || a.project_id.is_some()) && !a.account.is_empty() {
         if a.account.len() != 1 {
             return status(&a, "error", "Metadata update requires a single account");
         }
@@ -872,7 +876,7 @@ fn action_error(a: &ShowArgs, message: impl std::fmt::Display) -> Result<()> {
 fn login(auth: &mut AuthManager, a: &ShowArgs) -> Result<()> {
     let p = if let Some(p) = a.provider.first() {
         p.as_str()
-    } else if io::stdin().is_terminal() && io::stdout().is_terminal() && !a.json_output {
+    } else if is_interactive(a) {
         eprint!("Select provider [1] GitHub Copilot [2] OpenAI [3] OpenRouter (default 1): ");
         io::stderr().flush()?;
         let mut value = String::new();
@@ -914,7 +918,7 @@ fn login(auth: &mut AuthManager, a: &ShowArgs) -> Result<()> {
             Err(error) => return action_error(a, error),
         };
     }
-    let interactive = io::stdin().is_terminal() && io::stdout().is_terminal() && !a.json_output;
+    let interactive = is_interactive(a);
     if p == "openrouter" {
         input = openrouter_login_input(input, interactive && login_json.is_none(), || {
             prompt("Enter OpenRouter API key: ")
@@ -976,6 +980,14 @@ fn prompt(message: &str) -> Result<String> {
     let mut value = String::new();
     io::stdin().read_line(&mut value)?;
     Ok(value.trim().to_owned())
+}
+
+fn is_interactive(a: &ShowArgs) -> bool {
+    io::stdin().is_terminal() && io::stdout().is_terminal() && !a.json_output
+}
+
+fn login_requested(answer: &str) -> bool {
+    matches!(answer.to_ascii_lowercase().as_str(), "" | "y" | "yes")
 }
 
 fn github_login_input(
@@ -1301,5 +1313,15 @@ mod tests {
             .unwrap()
             .is_null()
         );
+    }
+
+    #[test]
+    fn missing_accounts_login_prompt_defaults_to_yes() {
+        for answer in ["", "y", "Y", "yes", "YES"] {
+            assert!(login_requested(answer), "{answer:?} should request login");
+        }
+        for answer in ["n", "no", "anything else"] {
+            assert!(!login_requested(answer), "{answer:?} should decline login");
+        }
     }
 }

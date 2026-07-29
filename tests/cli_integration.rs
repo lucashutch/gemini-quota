@@ -355,6 +355,35 @@ fn bare_logout_can_be_cancelled_without_mutating_accounts() {
 }
 
 #[test]
+fn missing_accounts_prompts_for_login_on_a_terminal() {
+    let home = TempDir::new().unwrap();
+    let command = env!("CARGO_BIN_EXE_limitwatch");
+    let mut child = Command::new("script")
+        .args(["-qfec", command, "/dev/null"])
+        .env("HOME", home.path())
+        .env_remove("XDG_CONFIG_HOME")
+        .env("NO_COLOR", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    use std::io::Write;
+    child.stdin.take().unwrap().write_all(b"n\n").unwrap();
+    let output = child.wait_with_output().unwrap();
+    let transcript = text(&output);
+
+    assert!(output.status.success(), "{transcript}");
+    assert!(
+        transcript.contains("Accounts file not found. Would you like to log in? [Y/n]:"),
+        "{transcript}"
+    );
+    assert!(
+        transcript.contains("Accounts file not found"),
+        "{transcript}"
+    );
+}
+
+#[test]
 fn logout_all_requires_confirmation_but_json_is_noninteractive() {
     let home = TempDir::new().unwrap();
     let original = r#"{"accounts":[{"type":"github_copilot","email":"octo"}],"activeIndex":0}"#;
