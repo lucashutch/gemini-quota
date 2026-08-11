@@ -118,7 +118,7 @@ pub fn candidates(kind: &str, prefix: &str) -> Vec<String> {
             }
         }
         "provider" => {
-            for x in ["github_copilot", "openai", "openrouter"] {
+            for x in ["github_copilot", "openai", "opencode", "openrouter"] {
                 out.insert(x.into());
             }
         }

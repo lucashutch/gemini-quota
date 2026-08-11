@@ -1,7 +1,7 @@
 # LimitWatch
 
 LimitWatch is a Rust CLI for monitoring quota usage, reset times, and credits
-across GitHub Copilot, OpenAI Codex, and OpenRouter accounts.
+across GitHub Copilot, OpenAI Codex, OpenCode Go, and OpenRouter accounts.
 
 ## Features
 
@@ -19,6 +19,7 @@ across GitHub Copilot, OpenAI Codex, and OpenRouter accounts.
 | --- | --- | --- |
 | **GitHub Copilot** | Personal or organization Copilot usage | `gh auth token` discovery or GitHub token |
 | **OpenAI Codex** | Codex plan usage windows | Local credentials or OpenAI device login |
+| **OpenCode Go** | Rolling, weekly, and monthly subscription usage | API key |
 | **OpenRouter** | Remaining credits and key usage | API key |
 
 Google and Chutes.ai accounts are not supported. Existing records for those
@@ -104,6 +105,8 @@ directly with `--provider`.
   login monitors that organization's credits instead of personal credits.
 - **OpenAI Codex:** Discovers local OpenCode and Codex credentials first, then
   offers OpenAI device authorization when needed.
+- **OpenCode Go:** Prompts for and validates an API key, then shows rolling,
+  weekly, and monthly subscription usage.
 - **OpenRouter:** Prompts for and validates an API key in interactive sessions.
 
 Non-interactive login can provide explicit input through
@@ -111,7 +114,7 @@ Non-interactive login can provide explicit input through
 
 ```sh
 LIMITWATCH_LOGIN_JSON='{"apiKey":"..."}' \
-  limitwatch --login --provider openrouter
+  limitwatch --login --provider opencode
 ```
 
 ## Data and security

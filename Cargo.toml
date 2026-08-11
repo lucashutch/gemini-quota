@@ -3,11 +3,11 @@ name = "limitwatch"
 version = "0.7.2"
 edition = "2021"
 rust-version = "1.88"
-description = "Monitor quota usage across GitHub Copilot, OpenAI Codex, and OpenRouter"
+description = "Monitor quota usage across GitHub Copilot, OpenAI Codex, OpenCode Go, and OpenRouter"
 license = "MIT"
 repository = "https://github.com/lucashutch/limitwatch"
 readme = "README.md"
-keywords = ["cli", "quota", "github-copilot", "openai", "openrouter"]
+keywords = ["cli", "quota", "github-copilot", "openai", "opencode"]
 categories = ["command-line-utilities"]
 
 [dependencies]

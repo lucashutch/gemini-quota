@@ -294,7 +294,7 @@ fn removed_provider_is_not_loginable_or_completable() {
         .contains("unsupported provider"));
     assert_eq!(
         limitwatch::completions::candidates("provider", ""),
-        vec!["github_copilot", "openai", "openrouter"]
+        vec!["github_copilot", "openai", "opencode", "openrouter"]
     );
 }
 
