@@ -113,7 +113,7 @@ impl Account {
     pub fn is_supported(&self) -> bool {
         matches!(
             self.provider_type.as_str(),
-            "github_copilot" | "openai" | "openrouter"
+            "github_copilot" | "openai" | "opencode" | "openrouter"
         )
     }
 

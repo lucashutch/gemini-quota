@@ -39,7 +39,7 @@ fn account(kind: &str) -> Account {
 }
 #[test]
 fn every_provider_has_stable_metadata() {
-    for kind in ["github_copilot", "openai", "openrouter"] {
+    for kind in ["github_copilot", "openai", "opencode", "openrouter"] {
         let p = providers::create(account(kind)).unwrap();
         assert_eq!(p.provider_type(), kind);
         assert!(!p.provider_name().is_empty());
@@ -123,13 +123,43 @@ fn provider_errors_do_not_expose_credentials() {
 }
 #[test]
 fn parsers_accept_representative_payloads() {
-    use limitwatch::providers::{openai::OpenAiProvider, openrouter::OpenRouterProvider};
+    use limitwatch::providers::{
+        openai::OpenAiProvider, opencode::OpenCodeProvider, openrouter::OpenRouterProvider,
+    };
     assert_eq!(OpenAiProvider::parse_usage(&json!({"rate_limit":{"primary_window":{"used_percent":10,"limit_window_seconds":3600}}})).len(),1);
     assert_eq!(
         OpenRouterProvider::parse_credits(&json!({"data":{"total_credits":10,"total_usage":2}}))
             .remaining,
         Some(8.0)
     );
+    assert_eq!(
+        OpenCodeProvider::parse_usage(&json!({"usage":{"rolling":{"percent":10}}}))[0]
+            .remaining_pct,
+        Some(90.0)
+    );
+}
+
+#[test]
+fn opencode_fetches_subscription_usage_with_a_bearer_key() {
+    let http = Http {
+        responses: Mutex::new(vec![HttpResponse {
+            status: 200,
+            body: json!({"usage":{"rolling":{"percent":12,"resetsAt":"2026-08-13T12:00:00Z"}}}),
+            headers: Default::default(),
+        }]),
+        requests: Mutex::new(vec![]),
+    };
+    let mut provider = providers::create(account("opencode")).unwrap();
+    let quotas =
+        futures::executor::block_on(provider.fetch(&http, &Proc, &RequestContext::default()))
+            .unwrap();
+
+    assert_eq!(quotas[0].name, "OpenCode Go Rolling");
+    assert_eq!(quotas[0].remaining_pct, Some(88.));
+    let request = &http.requests.lock().unwrap()[0];
+    assert_eq!(request.method, "GET");
+    assert_eq!(request.url, "https://opencode.ai/zen/go/v1/usage");
+    assert_eq!(request.headers["Authorization"], "Bearer SECRET_KEY");
 }
 
 #[test]

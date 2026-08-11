@@ -683,7 +683,7 @@ fn interactive_logout(auth: &mut AuthManager) -> Result<()> {
         return Ok(());
     }
     let mut providers = Vec::new();
-    for provider in ["github_copilot", "openai", "openrouter"] {
+    for provider in ["github_copilot", "openai", "opencode", "openrouter"] {
         if accounts.iter().any(|a| a.provider_type == provider) {
             providers.push(provider);
         }
@@ -697,6 +697,7 @@ fn interactive_logout(auth: &mut AuthManager) -> Result<()> {
         let label = match *provider {
             "github_copilot" => "GitHub Copilot",
             "openai" => "OpenAI",
+            "opencode" => "OpenCode Go",
             "openrouter" => "OpenRouter",
             _ => provider,
         };
@@ -877,13 +878,14 @@ fn login(auth: &mut AuthManager, a: &ShowArgs) -> Result<()> {
     let p = if let Some(p) = a.provider.first() {
         p.as_str()
     } else if is_interactive(a) {
-        eprint!("Select provider [1] GitHub Copilot [2] OpenAI [3] OpenRouter (default 1): ");
+        eprint!("Select provider [1] GitHub Copilot [2] OpenAI [3] OpenCode Go [4] OpenRouter (default 1): ");
         io::stderr().flush()?;
         let mut value = String::new();
         io::stdin().read_line(&mut value)?;
         match value.trim() {
             "2" | "openai" => "openai",
-            "3" | "openrouter" => "openrouter",
+            "3" | "opencode" => "opencode",
+            "4" | "openrouter" => "openrouter",
             _ => "github_copilot",
         }
     } else {
@@ -919,10 +921,18 @@ fn login(auth: &mut AuthManager, a: &ShowArgs) -> Result<()> {
         };
     }
     let interactive = is_interactive(a);
-    if p == "openrouter" {
-        input = openrouter_login_input(input, interactive && login_json.is_none(), || {
-            prompt("Enter OpenRouter API key: ")
-        })?;
+    if p == "openrouter" || p == "opencode" {
+        let provider_name = if p == "opencode" {
+            "OpenCode Go"
+        } else {
+            "OpenRouter"
+        };
+        input = api_key_login_input(
+            input,
+            interactive && login_json.is_none(),
+            provider_name,
+            || prompt(&format!("Enter {provider_name} API key: ")),
+        )?;
     }
     let http = match crate::quota_client::SharedHttp::new() {
         Ok(http) => http,
@@ -961,7 +971,12 @@ fn login(auth: &mut AuthManager, a: &ShowArgs) -> Result<()> {
     }
     Ok(())
 }
-fn openrouter_login_input<F>(input: Value, interactive: bool, prompt_for_key: F) -> Result<Value>
+fn api_key_login_input<F>(
+    input: Value,
+    interactive: bool,
+    provider_name: &str,
+    prompt_for_key: F,
+) -> Result<Value>
 where
     F: FnOnce() -> Result<String>,
 {
@@ -970,7 +985,7 @@ where
     }
     let key = prompt_for_key()?;
     if key.is_empty() {
-        bail!("OpenRouter API key is required")
+        bail!("{provider_name} API key is required")
     }
     Ok(json!({"apiKey": key}))
 }
@@ -1288,9 +1303,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn openrouter_key_input_is_tty_only_and_preserves_explicit_input() {
+    fn api_key_input_is_tty_only_and_preserves_explicit_input() {
         let prompted = std::cell::Cell::new(false);
-        let prompted_input = openrouter_login_input(Value::Null, true, || {
+        let prompted_input = api_key_login_input(Value::Null, true, "OpenCode Go", || {
             prompted.set(true);
             Ok("sk-or-test".into())
         })
@@ -1300,14 +1315,17 @@ mod tests {
 
         let explicit = json!({"apiKey": "from-json"});
         assert_eq!(
-            openrouter_login_input(explicit.clone(), true, || -> Result<String> {
-                panic!("explicit input must not prompt")
-            })
+            api_key_login_input(
+                explicit.clone(),
+                true,
+                "OpenCode Go",
+                || -> Result<String> { panic!("explicit input must not prompt") }
+            )
             .unwrap(),
             explicit
         );
         assert!(
-            openrouter_login_input(Value::Null, false, || -> Result<String> {
+            api_key_login_input(Value::Null, false, "OpenCode Go", || -> Result<String> {
                 panic!("non-TTY login must not prompt")
             })
             .unwrap()
