@@ -72,6 +72,42 @@ impl OpenCodeProvider {
             },
         )
     }
+
+    fn error_message(response: &HttpResponse) -> Option<&str> {
+        response
+            .body
+            .get("error")
+            .and_then(|error| error.get("message"))
+            .or_else(|| response.body.get("message"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|message| !message.is_empty())
+    }
+
+    fn require_usage_success(
+        response: HttpResponse,
+        operation: &str,
+    ) -> anyhow::Result<HttpResponse> {
+        if (200..300).contains(&response.status) {
+            return Ok(response);
+        }
+        if response.status == 401 {
+            bail!("Unauthorized: Invalid OpenCode Go API key");
+        }
+        let entitlement_error = response
+            .body
+            .get("error")
+            .and_then(|error| error.get("type"))
+            .and_then(Value::as_str)
+            .is_some_and(|kind| kind.eq_ignore_ascii_case("EntitlementError"));
+        if entitlement_error {
+            bail!("OpenCode Go subscription required. Subscribe to OpenCode Go and try again.");
+        }
+        if let Some(message) = Self::error_message(&response) {
+            bail!("{operation} failed: {}", sanitize_diagnostic(message));
+        }
+        require_success(response, operation)
+    }
 }
 
 impl Provider for OpenCodeProvider {
@@ -115,9 +151,7 @@ impl Provider for OpenCodeProvider {
                 .filter(|key| !key.is_empty())
                 .context("API key is required for OpenCode Go login")?;
             let response = Self::usage(client, context, key)?;
-            if response.status != 200 {
-                bail!("Invalid OpenCode Go API key (HTTP {})", response.status);
-            }
+            Self::require_usage_success(response, "OpenCode Go login")?;
             let mut account = self.a.clone();
             account.api_key = Some(key.into());
             account.email = input["name"]
@@ -152,10 +186,7 @@ impl Provider for OpenCodeProvider {
                 elapsed_ms: started.elapsed().as_secs_f64() * 1000.,
                 extra: Default::default(),
             });
-            if response.status == 401 || response.status == 403 {
-                bail!("Unauthorized: Invalid OpenCode Go API key");
-            }
-            require_success(response, "OpenCode Go usage")
+            Self::require_usage_success(response, "OpenCode Go usage")
                 .map(|response| Self::parse_usage(&response.body))
         })
     }
@@ -186,7 +217,29 @@ impl Provider for OpenCodeProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::Result;
     use serde_json::json;
+    use std::sync::Mutex;
+
+    struct Http {
+        response: Mutex<Option<HttpResponse>>,
+        requests: Mutex<Vec<HttpRequest>>,
+    }
+
+    impl HttpClient for Http {
+        fn execute(&self, request: HttpRequest) -> Result<HttpResponse> {
+            self.requests.lock().unwrap().push(request);
+            Ok(self.response.lock().unwrap().take().unwrap())
+        }
+    }
+
+    struct Process;
+
+    impl ProcessRunner for Process {
+        fn run(&self, _: &str, _: &[&str], _: Duration) -> Result<ProcessOutput> {
+            Ok(ProcessOutput::default())
+        }
+    }
 
     #[test]
     fn parse_usage_maps_windows_and_normalizes_resets() {
@@ -218,5 +271,44 @@ mod tests {
             "usage": {"rolling": {"percent": "not-a-number"}, "weekly": {}}
         }));
         assert!(quotas.is_empty());
+    }
+
+    #[test]
+    fn login_explains_when_a_valid_key_lacks_a_go_subscription() {
+        let http = Http {
+            response: Mutex::new(Some(HttpResponse {
+                status: 403,
+                headers: Default::default(),
+                body: json!({
+                    "type": "error",
+                    "error": {
+                        "type": "EntitlementError",
+                        "message": "OpenCode Go subscription required."
+                    }
+                }),
+            })),
+            requests: Mutex::new(vec![]),
+        };
+        let mut provider = OpenCodeProvider::new(Account {
+            provider_type: "opencode".into(),
+            email: "pending".into(),
+            ..Default::default()
+        });
+
+        let error = futures::executor::block_on(provider.login(
+            json!({"apiKey": "sk-test"}),
+            &http,
+            &Process,
+            &RequestContext::default(),
+        ))
+        .unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "OpenCode Go subscription required. Subscribe to OpenCode Go and try again."
+        );
+        let request = http.requests.lock().unwrap().pop().unwrap();
+        assert_eq!(request.url, USAGE);
+        assert_eq!(request.headers["Authorization"], "Bearer sk-test");
     }
 }
