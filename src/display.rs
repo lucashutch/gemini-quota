@@ -29,9 +29,6 @@ fn quota_name(q: &Quota) -> &str {
     }
 }
 fn reset(q: &Quota, now: DateTime<Utc>) -> String {
-    if q.remaining_pct.unwrap_or(100.0) >= 100.0 {
-        return String::new();
-    }
     let Some(value) = q.reset_time.as_deref() else {
         return String::new();
     };
@@ -682,6 +679,30 @@ mod tests {
             text.contains("O work      : Balance $2.50 remaining"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn countdown_is_shown_for_an_unused_quota() {
+        let quota = Quota {
+            display_name: "Five hour".into(),
+            used_pct: Some(0.0),
+            remaining_pct: Some(100.0),
+            reset_time: Some("2026-07-13T05:00:00Z".into()),
+            ..Default::default()
+        };
+        let text = render_quotas_at(
+            "me@example.com",
+            None,
+            None,
+            &*provider("openai"),
+            vec![quota],
+            false,
+            false,
+            Utc.with_ymd_and_hms(2026, 7, 12, 0, 0, 0).unwrap(),
+        );
+
+        assert!(text.contains("Five hour              "), "{text}");
+        assert!(text.contains(" (1d 5h)"), "{text}");
     }
 
     #[test]

@@ -9,6 +9,7 @@ use crate::{
     providers,
     providers::base::{HttpClient, ProcessRunner, RequestContext},
     quota_client::QuotaClient,
+    upgrade,
 };
 use anyhow::{bail, Result};
 use clap::{ArgAction, Args, CommandFactory, Parser, Subcommand, ValueEnum};
@@ -52,6 +53,7 @@ enum Commands {
     Show(ShowArgs),
     History(HistoryArgs),
     Export(ExportArgs),
+    Upgrade,
     Completion {
         #[arg(value_parser=["bash","zsh","fish"])]
         shell: String,
@@ -226,6 +228,7 @@ pub fn run() -> Result<()> {
         Some(Commands::Show(x)) => show(x),
         Some(Commands::History(x)) => history(x),
         Some(Commands::Export(x)) => export(x),
+        Some(Commands::Upgrade) => upgrade::run(VERSION),
         Some(Commands::Completion { shell }) => {
             completions::generate_script(&shell, Cli::command())
         }

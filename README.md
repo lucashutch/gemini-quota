@@ -56,6 +56,9 @@ limitwatch --login
 # Show all supported accounts
 limitwatch
 
+# Check GitHub and install the latest Linux x86_64 release
+limitwatch upgrade
+
 # Filter or change output format
 limitwatch --provider openrouter --compact
 limitwatch --account work --json --timings
