@@ -9,3 +9,4 @@ pub mod model;
 pub mod providers;
 pub mod quota_client;
 pub mod storage;
+pub mod upgrade;
